@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Max Health Club Gym | Transform Your Body</title>
+    <meta name="description"
+        content="Premium gym offering weight training, cardio, personal training, and yoga. Join Max Health Club Gym today.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container"></div>
+
+    <!-- Auth Overlay -->
+    <div id="auth-overlay">
+        <div class="auth-box">
+            <h2 id="auth-title">Login</h2>
+            <p id="auth-subtitle">Welcome back to Max Health Club Gym</p>
+
+            <div class="auth-form">
+                <!-- These extra fields will be toggled by JS when in Signup mode -->
+                <div id="signup-fields" style="display: none;">
+                    <input type="text" id="fullname" placeholder="Full Name">
+                    <input type="tel" id="contact" placeholder="Contact Number (e.g. 9876543210)" pattern="[0-9]{10}">
+                    <input type="text" id="address" placeholder="Address">
+                    <select id="plan-select">
+                        <option value="" disabled selected>Select a Plan</option>
+                        <option value="Basic">Basic - ₹999/mo</option>
+                        <option value="Standard">Standard - ₹1999/mo</option>
+                        <option value="Premium">Premium - ₹2999/mo</option>
+                    </select>
+                </div>
+                <input type="email" id="auth-email" placeholder="Email Address">
+                <input type="password" id="auth-password" placeholder="Password">
+
+
+
+                <button id="auth-primary-btn" class="btn btn-primary btn-full" onclick="login()">Sign In</button>
+                <div style="display: flex; align-items: center; margin: 15px 0;">
+                    <hr style="flex-grow: 1; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <span style="padding: 0 10px; color: var(--text-muted); font-size: 0.9rem;">OR</span>
+                    <hr style="flex-grow: 1; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
+                </div>
+                <button id="auth-google-btn" class="btn btn-outline btn-full" onclick="signInWithGoogle()"
+                    style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+                    <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                            fill="#4285F4" />
+                        <path
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                            fill="#34A853" />
+                        <path
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                            fill="#FBBC05" />
+                        <path
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                            fill="#EA4335" />
+                        <path d="M1 1h22v22H1z" fill="none" />
+                    </svg>
+                    Continue with Google
+                </button>
+            </div>
+
+            <div class="auth-toggle">
+                <p id="auth-toggle-text">Don't have an account? <span onclick="toggleAuthMode()">Sign up here</span></p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Navbar -->
+    <header id="navbar">
+        <div class="container nav-container">
+            <a href="#" class="logo">MAX <span>HEALTH</span></a>
+            <div class="menu-toggle" id="mobile-menu">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#membership">Plans</a></li>
+                    <li><a href="#services">Services</a></li>
+                    <li><a href="#trainers">Trainers</a></li>
+                    <li><a href="#testimonials">Reviews</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                    <li><a href="javascript:void(0)" class="nav-btn" onclick="openAuthOrDashboard()">Login /
+                            Dashboard</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Admin Dashboard (SPA) -->
+    <section id="admin-section" class="panel-section section-padding">
+        <div class="container admin-container">
+            <div class="admin-layout glass-panel">
+                <!-- Sidebar -->
+                <aside class="admin-sidebar">
+                    <div class="sidebar-header">
+                        <h2>MAX <span>ADMIN</span></h2>
+                    </div>
+                    <ul class="sidebar-nav">
+                        <li class="active" onclick="switchAdminTab('dashboard', this)">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <rect x="3" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="14" width="7" height="7"></rect>
+                                <rect x="3" y="14" width="7" height="7"></rect>
+                            </svg>
+                            Dashboard
+                        </li>
+                        <li onclick="switchAdminTab('customers', this)">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            Customer Data
+                        </li>
+                        <li onclick="switchAdminTab('profile', this)">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            Profile
+                        </li>
+                    </ul>
+                    <div class="sidebar-footer">
+                        <button class="btn btn-outline btn-full" onclick="logout()">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            Logout
+                        </button>
+                    </div>
+                </aside>
+                <!-- Main Content -->
+                <main class="admin-content">
+                    <div class="tabs-container">
+                        <!-- Dashboard Tab -->
+                        <div id="admin-tab-dashboard" class="admin-tab active">
+                            <div class="admin-header">
+                                <h2>Overview</h2>
+                                <p>Welcome back, Admin</p>
+                            </div>
+                            <div class="admin-stats-grid">
+                                <div class="stat-card">
+                                    <h3>Total Members</h3>
+                                    <div class="stat-value" id="stat-total-users">-</div>
+                                </div>
+                                <div class="stat-card">
+                                    <h3>Active Plans</h3>
+                                    <div class="stat-value" id="stat-active-plans">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Customers Tab -->
+                        <div id="admin-tab-customers" class="admin-tab">
+                            <div class="admin-header">
+                                <h2>Customer Data</h2>
+                                <button class="btn btn-primary btn-sm" onclick="loadAllUsers()">Refresh Data</button>
+                            </div>
+                            <div class="data-table-container">
+                                <div class="admin-controls" style="display: flex; gap: 15px; margin-bottom: 20px;">
+                                    <input type="text" id="search-customer" placeholder="Search by name..."
+                                        style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); color: white; flex-grow: 1;">
+                                    <select id="filter-customer"
+                                        style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); color: white;">
+                                        <option value="all">All Customers</option>
+                                        <option value="sort-name">Sort by Name</option>
+                                        <option value="paid">Paid Customers</option>
+                                        <option value="unpaid">Unpaid Customers</option>
+                                    </select>
+                                </div>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Contact</th>
+                                            <th>Plan</th>
+                                            <th>Join Date</th>
+                                            <th>Last Paid</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="user-list">
+                                    </tbody>
+                                </table>
+                                <div id="admin-loading" class="loading-spinner"></div>
+                            </div>
+                        </div>
+
+                        <!-- Profile Tab -->
+                        <div id="admin-tab-profile" class="admin-tab">
+                            <div class="admin-header">
+                                <h2>Admin Profile</h2>
+                            </div>
+                            <div class="user-card">
+                                <p style="color: var(--text-muted); margin-bottom: 20px;">Owner details</p>
+                                <div class="user-info-row">
+                                    <span class="label">Name</span>
+                                    <span class="value">Pappu Zade</span>
+                                </div>
+                                <div class="user-info-row">
+                                    <span class="label">Email</span>
+                                    <span class="value">suzainboss327@gmail.com</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </section>
+
+    <!-- User Dashboard -->
+    <section id="user-section" class="panel-section section-padding">
+        <div class="container user-container">
+            <div class="admin-layout glass-panel">
+                <!-- User Sidebar -->
+                <aside class="admin-sidebar">
+                    <div class="sidebar-header">
+                        <h2>MAX <span>MEMBER</span></h2>
+                    </div>
+                    <ul class="sidebar-nav">
+                        <li class="active" onclick="switchUserTab('profile', this)">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            Profile
+                        </li>
+                        <li onclick="switchUserTab('plans', this)">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                            </svg>
+                            My Plans / Services
+                        </li>
+                    </ul>
+                    <div class="sidebar-footer">
+                        <button class="btn btn-outline btn-full" onclick="logout()">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            Logout
+                        </button>
+                    </div>
+                </aside>
+                <!-- Main Content -->
+                <main class="admin-content">
+                    <div class="tabs-container">
+                        <!-- User Profile Tab -->
+                        <div id="user-tab-profile" class="admin-tab active">
+                            <div class="admin-header">
+                                <h2>Your Profile</h2>
+                            </div>
+                            <div class="user-card">
+                                <div class="user-info-row">
+                                    <span class="label">Name</span>
+                                    <span id="user-name" class="value"></span>
+                                </div>
+                                <div class="user-info-row">
+                                    <span class="label">Email</span>
+                                    <span id="user-email" class="value"></span>
+                                </div>
+                                <div class="user-info-row">
+                                    <span class="label">Plan</span>
+                                    <span id="user-plan" class="value plan-badge"></span>
+                                </div>
+                                <div class="user-info-row">
+                                    <span class="label">Join Date</span>
+                                    <span id="user-join-date" class="value"></span>
+                                </div>
+                                <div class="user-info-row">
+                                    <span class="label">Last Paid</span>
+                                    <span id="user-last-paid" class="value"></span>
+                                </div>
+                                <div class="user-info-row" style="align-items: center;">
+                                    <span class="label">Status</span>
+                                    <div style="display: flex; gap: 15px; align-items: center;">
+                                        <span id="user-payment" class="value status-badge"></span>
+                                        <button id="pay-now-btn" class="btn btn-primary btn-sm" style="display: none;"
+                                            onclick="payNow()">Pay Now</button>
+                                    </div>
+                                </div>
+                                <div class="progress-container" style="margin-top: 25px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                        <span class="label">Subscription Cycle</span>
+                                        <span id="days-remaining" class="value" style="font-size: 0.9rem;">- days
+                                            remaining</span>
+                                    </div>
+                                    <div class="progress-bar-bg"
+                                        style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
+                                        <div id="cycle-progress"
+                                            style="width: 0%; height: 100%; background: #4ade80; transition: width 0.5s ease, background 0.5s ease;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- User Plans Tab -->
+                        <div id="user-tab-plans" class="admin-tab">
+                            <div class="admin-header">
+                                <h2>My Plans & Services</h2>
+                            </div>
+                            <div class="user-card">
+                                <h3>Upgrade Your Membership</h3>
+                                <p style="color: var(--text-muted); margin: 15px 0;">To upgrade or change your current
+                                    plan, please visit the front desk or contact support.</p>
+                                <a href="#contact" class="btn btn-primary btn-sm">Contact Support</a>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </section>
+
+    <!-- Landing Section (Wrapped so it can be toggled) -->
+    <div id="landing-section">
+        <!-- Hero Section -->
+        <section id="home" class="hero">
+            <div id="canvas-container"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 0.8; pointer-events: none;">
+            </div>
+            <div class="hero-overlay" style="z-index: 2;"></div>
+            <div class="container hero-content" style="z-index: 3; position: relative;">
+                <h1>MAX HEALTH <br><span class="text-accent">CLUB</span></h1>
+                <p>Transform Your Body, Transform Your Life</p>
+                <div class="hero-buttons">
+                    <a href="#membership" class="btn btn-primary">Start Your Transformation</a>
+                    <a href="#contact" class="btn btn-outline">Claim Free Trial</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Membership Plans -->
+        <section id="membership" class="section">
+            <div class="container">
+                <h2 class="section-title">Membership <span class="text-accent">Plans</span></h2>
+                <div class="cards-grid">
+                    <!-- Basic Plan -->
+                    <div class="pricing-card">
+                        <h3>Basic</h3>
+                        <div class="price"><span>₹</span>999<span>/month</span></div>
+                        <ul>
+                            <li><span class="check">✓</span> Access to Gym Equipment</li>
+                            <li><span class="check">✓</span> Locker Room Access</li>
+                            <li><span class="check">✓</span> Free Wi-Fi</li>
+                            <li class="disabled"><span class="cross">✕</span> Group Classes</li>
+                            <li class="disabled"><span class="cross">✕</span> Personal Training</li>
+                        </ul>
+                        <button class="btn btn-outline btn-full" onclick="choosePlan('Basic', 999)">Choose Plan</button>
+                    </div>
+                    <!-- Standard Plan (Highlighted) -->
+                    <div class="pricing-card highlighted">
+                        <div class="popular-badge">Most Popular</div>
+                        <h3>Standard</h3>
+                        <div class="price"><span>₹</span>1999<span>/month</span></div>
+                        <ul>
+                            <li><span class="check">✓</span> Access to Gym Equipment</li>
+                            <li><span class="check">✓</span> Locker Room Access</li>
+                            <li><span class="check">✓</span> Free Wi-Fi</li>
+                            <li><span class="check">✓</span> Group Classes (Yoga/Zumba)</li>
+                            <li class="disabled"><span class="cross">✕</span> Personal Training</li>
+                        </ul>
+                        <button class="btn btn-primary btn-full" onclick="choosePlan('Standard', 1999)">Choose
+                            Plan</button>
+                    </div>
+                    <!-- Premium Plan -->
+                    <div class="pricing-card">
+                        <h3>Premium</h3>
+                        <div class="price"><span>₹</span>2999<span>/month</span></div>
+                        <ul>
+                            <li><span class="check">✓</span> Access to Gym Equipment</li>
+                            <li><span class="check">✓</span> Locker Room Access</li>
+                            <li><span class="check">✓</span> Free Wi-Fi</li>
+                            <li><span class="check">✓</span> Group Classes (Yoga/Zumba)</li>
+                            <li><span class="check">✓</span> 4 Personal Training Sessions</li>
+                        </ul>
+                        <button class="btn btn-outline btn-full" onclick="choosePlan('Premium', 2999)">Choose
+                            Plan</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Services Section -->
+        <section id="services" class="section bg-darker">
+            <div class="container">
+                <h2 class="section-title">Our <span class="text-accent">Services</span></h2>
+                <div class="services-grid">
+                    <div class="service-card">
+                        <div class="icon">
+                            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M6 5.5v13M18 5.5v13M4 8h4M16 8h4M4 16h4M16 16h4M2 12h20"></path>
+                            </svg>
+                        </div>
+                        <h3>Weight Training</h3>
+                        <p>Build muscle and strength with our state-of-the-art free weights and machines.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="icon">
+                            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                            </svg>
+                        </div>
+                        <h3>Cardio</h3>
+                        <p>Improve your endurance with top-tier treadmills, ellipticals, and bikes.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="icon">
+                            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                        <h3>Personal Training</h3>
+                        <p>Get personalized coaching tailored to your specific fitness goals.</p>
+                    </div>
+                    <div class="service-card">
+                        <div class="icon">
+                            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <circle cx="12" cy="5" r="2"></circle>
+                                <path d="m16 12-4-2-4 2"></path>
+                                <path d="m12 10-2 4 2 8"></path>
+                                <path d="m12 10 2 4-2 8"></path>
+                                <path d="M8 22h8"></path>
+                            </svg>
+                        </div>
+                        <h3>Yoga & Zumba</h3>
+                        <p>Find balance, flexibility, and rhythm in our dynamic group classes.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Trainers Section -->
+        <section id="trainers" class="section">
+            <div class="container">
+                <h2 class="section-title">Expert <span class="text-accent">Trainers</span></h2>
+                <div class="cards-grid">
+                    <div class="trainer-card">
+                        <div class="trainer-img">
+                            <img src="assets/images/trainer_one.png" alt="Marcus Johnson - Strength & Conditioning">
+                        </div>
+                        <div class="trainer-info">
+                            <h3>Marcus Johnson</h3>
+                            <p class="specialty">Strength & Conditioning</p>
+                        </div>
+                    </div>
+                    <div class="trainer-card">
+                        <div class="trainer-img">
+                            <img src="assets/images/trainer_two.png" alt="Sarah Mitchell - Yoga & Flexibility">
+                        </div>
+                        <div class="trainer-info">
+                            <h3>Sarah Mitchell</h3>
+                            <p class="specialty">Yoga & Flexibility</p>
+                        </div>
+                    </div>
+                    <div class="trainer-card">
+                        <div class="trainer-img">
+                            <img src="assets/images/trainer_three.png" alt="David Chen - HIIT & Cardio">
+                        </div>
+                        <div class="trainer-info">
+                            <h3>David Chen</h3>
+                            <p class="specialty">HIIT & Cardio</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Testimonials -->
+        <section id="testimonials" class="section bg-darker">
+            <div class="container">
+                <h2 class="section-title">Client <span class="text-accent">Reviews</span></h2>
+                <div class="cards-grid">
+                    <div class="testimonial-card">
+                        <div class="stars">★★★★★</div>
+                        <p class="quote">"Max Health Club Gym completely changed my perspective on fitness. The trainers
+                            are
+                            incredibly supportive and the equipment is top-notch."</p>
+                        <div class="client-name">- Emily R.</div>
+                    </div>
+                    <div class="testimonial-card">
+                        <div class="stars">★★★★★</div>
+                        <p class="quote">"The best gym environment I've ever experienced. The Premium plan with personal
+                            training is worth every penny."</p>
+                        <div class="client-name">- Michael T.</div>
+                    </div>
+                    <div class="testimonial-card">
+                        <div class="stars">★★★★★</div>
+                        <p class="quote">"Love the variety of classes! Yoga after an intense week of lifting is the
+                            perfect
+                            balance for my body."</p>
+                        <div class="client-name">- Jessica L.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="section">
+            <div class="container">
+                <h2 class="section-title">Get In <span class="text-accent">Touch</span></h2>
+                <div class="contact-grid">
+                    <div class="contact-info">
+                        <h3>Contact Information</h3>
+                        <p>Ready to start your fitness journey? Reach out to us or visit our facility.</p>
+                        <div class="info-item">
+                            <div class="icon">📍</div>
+                            <p>Koradi Highway, Nagpur, Maharashtra</p>
+                        </div>
+                        <div class="info-item">
+                            <div class="icon">📞</div>
+                            <p><a href="tel:+919876543210">+91 98230xxxxx</a></p>
+                        </div>
+                        <div class="info-item">
+                            <div class="icon">✉️</div>
+                            <p>info@maxhealthclub.com</p>
+                        </div>
+                    </div>
+                    <form id="contact-form" class="contact-form">
+                        <div class="form-group">
+                            <input type="text" id="name" placeholder="Your Name" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="email" id="email" placeholder="Your Email" required>
+                        </div>
+                        <div class="form-group">
+                            <textarea id="message" rows="5" placeholder="Your Message" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Get Free Trial Now</button>
+                        <div id="form-status" class="form-status"></div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-logo">MAX <span class="text-accent">HEALTH</span></div>
+                    <p>&copy; 2026 Max Health Club Gym. All Rights Reserved. Owned by Pappu Zade.</p>
+                </div>
+            </div>
+        </footer>
+    </div> <!-- End Landing Section -->
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <script src="script.js"></script>
+    <!-- WhatsApp Floating Button -->
+    <a href="https://wa.me/919999999999" class="whatsapp-float" target="_blank">
+        <img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" alt="WhatsApp">
+    </a>
+
+
+</body>
+
+</html>
