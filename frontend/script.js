@@ -1,6 +1,6 @@
 // Body display none removed
 // ================= NAVBAR =================
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'https://max-health-1.onrender.com';
 const navbar = document.getElementById('navbar');
 
 window.addEventListener('scroll', () => {
