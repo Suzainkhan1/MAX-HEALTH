@@ -1,0 +1,22 @@
+{
+  "name": "max-health-backend",
+  "version": "1.0.0",
+  "description": "Backend for Max Health Club Gym",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "firebase-admin": "^12.7.0",
+    "node-cron": "^3.0.3",
+    "razorpay": "^2.9.6",
+    "twilio": "^5.13.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
