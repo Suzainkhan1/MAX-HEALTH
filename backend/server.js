@@ -13,7 +13,10 @@ app.use(cors());
 app.use(express.json());
 
 // Serve frontend static files
-app.use(express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '../frontend')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
 
 // Initialize Firebase Admin (Only ONE initialization)
 try {
@@ -34,7 +37,10 @@ try {
   console.error("Firebase Init Error:", error.message);
 }
 
-const db = admin.firestore ? admin.firestore() : null;
+if (!admin.apps.length) {
+  throw new Error("Firebase not initialized properly");
+}
+const db = admin.firestore();
 
 // Initialize Twilio
 let twilioClient;
@@ -49,24 +55,21 @@ try {
 
 // Initialize Razorpay
 let razorpayInstance;
+
 try {
-  if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-    razorpayInstance = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
-    });
-    console.log("Razorpay Initialized");
-  } else {
-    // Mock Razorpay instance for testing if keys are not provided
-    razorpayInstance = {
-      orders: {
-        create: async (options) => ({ id: "order_" + Math.random().toString(36).substr(2, 9), ...options })
-      }
-    };
-    console.log("Razorpay MOCK Initialized (missing env variables)");
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Razorpay keys missing in environment variables");
   }
+
+  razorpayInstance = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+
+  console.log("Razorpay Initialized");
+
 } catch (error) {
-  console.error("Failed to initialize Razorpay.", error.message);
+  console.error("Razorpay Init Error:", error.message);
 }
 
 // Helper to calculate days difference
