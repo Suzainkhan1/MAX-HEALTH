@@ -167,34 +167,50 @@ app.post('/api/payments/verify', async (req, res) => {
       return res.status(500).json({ error: "Database not configured." });
     }
 
-    let isSignatureValid = true;
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+  return res.status(500).json({ error: "Payment system not configured" });
+}
 
-    if (process.env.RAZORPAY_KEY_SECRET) {
-      const body = razorpay_order_id + "|" + razorpay_payment_id;
-      const expectedSignature = crypto
-        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-        .update(body.toString())
-        .digest("hex");
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
 
-      isSignatureValid = expectedSignature === razorpay_signature;
-    }
+const expectedSignature = crypto
+  .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+  .update(body)
+  .digest("hex");
 
-    if (isSignatureValid) {
-      const today = new Date().toISOString();
-      await db.collection("users").doc(userId).update({
-        paymentStatus: "Paid",
-        lastPaymentDate: today
-      });
-      res.status(200).json({ success: true, message: "Payment verified successfully" });
-    } else {
-      res.status(400).json({ success: false, error: "Invalid signature" });
-    }
-  } catch (error) {
-    console.error("Payment Verification Error:", error);
-    res.status(500).json({ error: error.message });
-  }
+if (expectedSignature !== razorpay_signature) {
+  return res.status(400).json({ success: false, error: "Invalid signature" });
+}
+
+const userRef = db.collection("users").doc(userId);
+const userDoc = await userRef.get();
+
+if (!userDoc.exists) {
+  return res.status(404).json({ error: "User not found" });
+}
+
+    const today = new Date().toISOString();
+
+await userRef.update({
+  paymentStatus: "Paid",
+  lastPaymentDate: today
 });
 
+return res.status(200).json({
+  success: true,
+  message: "Payment verified successfully"
+
+
+});
+  } 
+  catch (error) {
+  console.error("Payment Verification Error:", error);
+  res.status(500).json({ error: error.message });
+}
+
+});
+
+ 
 // CRON JOB: Runs every day at 00:00 (Midnight)
 cron.schedule('0 0 * * *', async () => {
   console.log('Running daily cron job for expiry and reminders...');
