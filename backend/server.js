@@ -56,21 +56,16 @@ try {
 // Initialize Razorpay
 let razorpayInstance;
 
-try {
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-    throw new Error("Razorpay keys missing in environment variables");
-  }
-
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
   razorpayInstance = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET,
   });
-
   console.log("Razorpay Initialized");
-
-} catch (error) {
-  console.error("Razorpay Init Error:", error.message);
+} else {
+  console.log("Razorpay not configured (DEV MODE)");
 }
+
 
 // Helper to calculate days difference
 const getDaysDifference = (date1, date2) => {
