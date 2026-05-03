@@ -24,13 +24,38 @@ app.use(morgan('dev'));
 const cache = new NodeCache({ stdTTL: 600 });
 
 // =============================================================
-// FIREBASE INITIALIZATION — uses serviceAccountKey.json directly
+// FIREBASE INITIALIZATION
+// Local:      reads ./serviceAccountKey.json  (never committed)
+// Production: reads FIREBASE_SERVICE_ACCOUNT env variable (JSON string)
 // =============================================================
 let db = null;
 
 try {
   if (!admin.apps.length) {
-    const serviceAccount = require('./serviceAccountKey.json');
+    let serviceAccount;
+
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      // Production (Render, etc.) — env var contains the full JSON string
+      try {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      } catch (parseError) {
+        throw new Error(
+          'FIREBASE_SERVICE_ACCOUNT env variable is set but contains invalid JSON: ' +
+          parseError.message
+        );
+      }
+    } else {
+      // Local development — fall back to the JSON file
+      try {
+        serviceAccount = require('./serviceAccountKey.json');
+      } catch {
+        throw new Error(
+          'serviceAccountKey.json not found and FIREBASE_SERVICE_ACCOUNT env variable is not set. ' +
+          'Set FIREBASE_SERVICE_ACCOUNT on Render or add serviceAccountKey.json locally.'
+        );
+      }
+    }
+
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
