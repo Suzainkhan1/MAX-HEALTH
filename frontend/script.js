@@ -1,68 +1,17 @@
-// Body display none removed
-// ================= NAVBAR =================
-const API_BASE_URL = 'https://max-health-1.onrender.com';
-const navbar = document.getElementById('navbar');
+const API_BASE_URL = 'http://localhost:3000'; // Change to production URL when deploying
 
-window.addEventListener('scroll', () => {
-    if (window.scrollY > 50) navbar.classList.add('scrolled');
-    else navbar.classList.remove('scrolled');
-});
+// ================= GLOBAL STATE =================
+let appState = {
+    user: null,
+    token: null,
+    role: 'user', // Default
+    authOpen: false,
+    sidebarOpen: false,
+    adminOverlayOpen: false,
+    reduceMotion: false
+};
 
-// ================= MOBILE MENU =================
-const menuToggle = document.getElementById('mobile-menu');
-const navLinks = document.querySelector('.nav-links');
-const navItems = document.querySelectorAll('.nav-links li a');
-
-menuToggle?.addEventListener('click', () => {
-    menuToggle.classList.toggle('active');
-    navLinks.classList.toggle('active');
-});
-
-navItems.forEach(item => {
-    item.addEventListener('click', () => {
-        menuToggle.classList.remove('active');
-        navLinks.classList.remove('active');
-    });
-});
-
-// ================= CONTACT FORM =================
-const contactForm = document.getElementById('contact-form');
-const formStatus = document.getElementById('form-status');
-
-if (contactForm) {
-    contactForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-
-        const name = document.getElementById('name').value;
-        const email = document.getElementById('email').value;
-        const message = document.getElementById('message').value;
-
-        if (name && email && message) {
-            const btn = contactForm.querySelector('button');
-            const original = btn.textContent;
-
-            btn.textContent = "Sending...";
-            btn.disabled = true;
-
-            setTimeout(() => {
-                contactForm.reset();
-                btn.textContent = original;
-                btn.disabled = false;
-
-                formStatus.textContent = "Message sent!";
-                formStatus.classList.add('success');
-
-                setTimeout(() => {
-                    formStatus.textContent = "";
-                    formStatus.classList.remove('success');
-                }, 3000);
-
-            }, 1500);
-        }
-    });
-}
-
-// ================= FIREBASE =================
+// ================= FIREBASE INIT =================
 const firebaseConfig = {
     apiKey: "AIzaSyCykaC3C4w3i9IeEFUw4Rj4lJWrfS6rUU0",
     authDomain: "gym-management-a2ea0.firebaseapp.com",
@@ -70,91 +19,123 @@ const firebaseConfig = {
     storageBucket: "gym-management-a2ea0.firebasestorage.app",
     messagingSenderId: "807411949129",
     appId: "1:807411949129:web:5dc2e9bcde801c4831a998"
-
 };
 
-firebase.initializeApp(firebaseConfig);
-
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+const storage = firebase.storage();
 
-const ADMIN_EMAIL = "suzainboss327@gmail.com";
+// ================= UTILITIES =================
+function showLoader() { document.getElementById('global-loader').style.display = 'flex'; }
+function hideLoader() { document.getElementById('global-loader').style.display = 'none'; }
 
-// Removed Google Script URL
-
-// ================= UI UTILITIES =================
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
-
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerHTML = message;
-
     container.appendChild(toast);
-
-    // Trigger animation
     setTimeout(() => toast.classList.add('show'), 10);
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
-let isLoginMode = true;
-function toggleAuthMode() {
-    isLoginMode = !isLoginMode;
-    const title = document.getElementById('auth-title');
-    const subtitle = document.getElementById('auth-subtitle');
-    const btn = document.getElementById('auth-primary-btn');
-    const toggleText = document.getElementById('auth-toggle-text');
-    const signupFields = document.getElementById('signup-fields');
+// Network Detection
+window.addEventListener('online', () => { document.getElementById('offline-banner').style.display = 'none'; });
+window.addEventListener('offline', () => { document.getElementById('offline-banner').style.display = 'block'; });
 
-    if (isLoginMode) {
-        title.innerText = "Login";
-        subtitle.innerText = "Welcome back to Max Health Club Gym";
-        btn.innerText = "Sign In";
-        btn.onclick = login;
-        signupFields.style.display = "none";
-        toggleText.innerHTML = `Don't have an account? <span onclick="toggleAuthMode()">Sign up here</span>`;
+// Centralized API Wrapper
+async function api(endpoint, method = 'GET', body = null) {
+    if (!navigator.onLine) {
+        showToast("You are offline. Please check your connection.", "error");
+        throw new Error("Offline");
+    }
+
+    if (appState.user) {
+        try {
+            appState.token = await appState.user.getIdToken(true);
+        } catch (e) {
+            console.error("Token refresh failed", e);
+        }
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (appState.token) headers['Authorization'] = `Bearer ${appState.token}`;
+
+    const options = { method, headers };
+    if (body) options.body = JSON.stringify(body);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+        const res = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, signal: controller.signal });
+        clearTimeout(timeout);
+        const data = await res.json();
+        
+        if (!res.ok || !data.success) throw new Error(data.error || "API Error");
+        return data;
+    } catch (err) {
+        clearTimeout(timeout);
+        throw err;
+    }
+}
+
+// ================= AUTHENTICATION =================
+auth.onAuthStateChanged(async (user) => {
+    appState.user = user;
+    if (user) {
+        appState.token = await user.getIdToken();
+        try {
+            const docSnap = await db.collection("users").doc(user.uid).get();
+            if (docSnap.exists) {
+                appState.role = docSnap.data().role || 'user';
+            }
+        } catch(e) { appState.role = 'user'; }
+        updateUIAfterLogin();
     } else {
-        title.innerText = "Sign Up";
-        subtitle.innerText = "Start your transformation today";
-        btn.innerText = "Create Account";
-        btn.onclick = signup;
-        signupFields.style.display = "block";
-        toggleText.innerHTML = `Already have an account? <span onclick="toggleAuthMode()">Login here</span>`;
+        appState.token = null;
+        appState.role = 'user';
+        updateUIAfterLogout();
+    }
+});
+
+function openAuthModal() {
+    document.getElementById("auth-overlay").classList.add("show");
+    switchAuthView('login');
+}
+function closeAuthModal() { document.getElementById("auth-overlay").classList.remove("show"); }
+
+function switchAuthView(view) {
+    const loginForm = document.getElementById('login-form');
+    const forgotForm = document.getElementById('forgot-pw-form');
+    const signupFields = document.getElementById('signup-fields');
+    const title = document.getElementById('auth-title');
+    const btn = document.getElementById('auth-primary-btn');
+    const toggle = document.getElementById('auth-toggle-container');
+    const orDivider = document.getElementById('auth-or-divider');
+    const googleBtn = document.getElementById('auth-google-btn');
+    const forgotLink = document.getElementById('forgot-pw-link');
+
+    if (view === 'login') {
+        loginForm.style.display = 'block'; forgotForm.style.display = 'none'; signupFields.style.display = 'none';
+        title.innerText = "Login"; btn.innerText = "Sign In"; btn.onclick = login;
+        toggle.innerHTML = `<p>Don't have an account? <span onclick="switchAuthView('signup')">Sign up here</span></p>`;
+        orDivider.style.display = 'flex'; googleBtn.style.display = 'flex'; forgotLink.style.display = 'block';
+    } else if (view === 'signup') {
+        loginForm.style.display = 'block'; forgotForm.style.display = 'none'; signupFields.style.display = 'block';
+        title.innerText = "Sign Up"; btn.innerText = "Create Account"; btn.onclick = signup;
+        toggle.innerHTML = `<p>Already have an account? <span onclick="switchAuthView('login')">Login here</span></p>`;
+        orDivider.style.display = 'none'; googleBtn.style.display = 'none'; forgotLink.style.display = 'none';
+    } else if (view === 'forgot') {
+        loginForm.style.display = 'none'; forgotForm.style.display = 'block';
+        title.innerText = "Reset Password";
+        toggle.innerHTML = "";
     }
 }
 
-function switchAdminTab(tabId, element) {
-    // Update active tab in sidebar
-    document.getElementById('admin-section').querySelectorAll('.sidebar-nav li').forEach(el => el.classList.remove('active'));
-    element.classList.add('active');
-
-    // Switch content
-    document.getElementById('admin-section').querySelectorAll('.admin-tab').forEach(el => el.classList.remove('active'));
-    document.getElementById('admin-tab-' + tabId).classList.add('active');
-
-    if (tabId === 'customers') {
-        loadAllUsers();
-    }
-}
-
-function switchUserTab(tabId, element) {
-    // Update active tab in sidebar
-    document.getElementById('user-section').querySelectorAll('.sidebar-nav li').forEach(el => el.classList.remove('active'));
-    element.classList.add('active');
-
-    // Switch content
-    document.getElementById('user-section').querySelectorAll('.admin-tab').forEach(el => el.classList.remove('active'));
-    document.getElementById('user-tab-' + tabId).classList.add('active');
-}
-
-// ================= SIGNUP =================
-function signup() {
+async function signup() {
     const email = document.getElementById("auth-email").value;
     const password = document.getElementById("auth-password").value;
     const name = document.getElementById("fullname").value;
@@ -162,632 +143,676 @@ function signup() {
     const address = document.getElementById("address").value;
     const plan = document.getElementById("plan-select").value;
 
-    if (!email || !password || !name || !contact || !address || !plan) {
-        return showToast("Please fill all fields", "error");
-    }
-    if (!/^\d{10}$/.test(contact)) {
-        return showToast("Please enter a valid 10-digit phone number", "error");
-    }
-
-    const btn = document.getElementById('auth-primary-btn');
-    const originalText = btn.innerText;
-    btn.innerText = "Creating...";
-    btn.disabled = true;
-
-    auth.createUserWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-            const user = userCredential.user;
-            const userData = {
-                uid: user.uid,
-                name: name,
-                email: email,
-                contact: contact,
-                address: address,
-                plan: plan,
-                paymentStatus: "Unpaid",
-                joinDate: new Date().toLocaleDateString()
-            };
-
-            // Backend sync
-            return fetch(`${API_BASE_URL}/api/signup`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(userData)
-            }).then(res => {
-                if (!res.ok) throw new Error("Backend sync failed");
-                return res.json();
-            });
-        })
-        .then(() => {
-            showToast("Account created successfully!");
-        })
-        .catch(err => {
-            console.error(err);
-            showToast(err.message, "error");
-        })
-        .finally(() => {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        });
+    if (!email || !password || !name || !contact || !address || !plan) return showToast("Fill all fields", "error");
+    
+    showLoader();
+    try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const userData = { uid: cred.user.uid, name, email, contact, address, plan, paymentStatus: "Unpaid", joinDate: new Date().toISOString(), lastPaymentDate: null, role: 'user' };
+        await api('/api/signup', 'POST', userData);
+        showToast("Account created!");
+        closeAuthModal();
+        api('/api/analytics', 'POST', { type: 'signup', data: { uid: cred.user.uid }}).catch(()=>{});
+    } catch (err) {
+        showToast(err.message, "error");
+    } finally { hideLoader(); }
 }
 
-// ================= LOGIN =================
-function login() {
+async function login() {
     const email = document.getElementById("auth-email").value;
     const password = document.getElementById("auth-password").value;
-
-    if (!email || !password) {
-        return showToast("Please fill all fields", "error");
-    }
+    if (!email || !password) return showToast("Fill all fields", "error");
 
     const btn = document.getElementById('auth-primary-btn');
-    const originalText = btn.innerText;
-    btn.innerText = "Signing in...";
-    btn.disabled = true;
-
-    auth.signInWithEmailAndPassword(email, password)
-        .catch(err => {
-            let errorMsg = "Login failed. Please try again.";
-            if (err.code === 'auth/user-not-found') {
-                errorMsg = "Username is incorrect";
-            } else if (err.code === 'auth/wrong-password') {
-                errorMsg = "Password is incorrect";
-            } else if (err.code === 'auth/invalid-credential') {
-                errorMsg = "Username & Password are incorrect. Please sign up";
-            }
-            showToast(errorMsg, "error");
-            btn.innerText = originalText;
-            btn.disabled = false;
-        });
+    btn.disabled = true; btn.innerText = "Loading...";
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+        showToast("Logged in!");
+        closeAuthModal();
+        api('/api/analytics', 'POST', { type: 'login', data: { email }}).catch(()=>{});
+    } catch (err) {
+        showToast("Login failed. Check credentials.", "error");
+    } finally { btn.disabled = false; btn.innerText = "Sign In"; }
 }
 
-// ================= GOOGLE LOGIN =================
-function signInWithGoogle() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider)
-        .then((result) => {
-            const user = result.user;
-            // Check if user exists in Firestore
-            db.collection("users").doc(user.uid).get().then(doc => {
-                if (!doc.exists) {
-                    // New user from Google, need additional details
-                    isLoginMode = false;
-                    const title = document.getElementById('auth-title');
-                    const subtitle = document.getElementById('auth-subtitle');
-                    const btn = document.getElementById('auth-primary-btn');
-                    const signupFields = document.getElementById('signup-fields');
-                    const emailInput = document.getElementById("auth-email");
-                    const passwordInput = document.getElementById("auth-password");
-
-                    title.innerText = "Complete Profile";
-                    subtitle.innerText = "Please provide additional details";
-                    signupFields.style.display = "block";
-
-                    emailInput.value = user.email;
-                    emailInput.disabled = true;
-                    passwordInput.style.display = "none"; // Hide password for Google users
-
-                    btn.innerText = "Save & Continue";
-                    btn.onclick = () => {
-                        const name = document.getElementById("fullname").value || user.displayName;
-                        const contact = document.getElementById("contact").value;
-                        const address = document.getElementById("address").value;
-                        const plan = document.getElementById("plan-select").value;
-
-                        if (!name || !contact || !address || !plan) {
-                            return showToast("Please fill all fields", "error");
-                        }
-
-                        const userData = {
-                            uid: user.uid,
-                            name: name,
-                            email: user.email,
-                            contact: contact,
-                            address: address,
-                            plan: plan,
-                            paymentStatus: "Unpaid",
-                            joinDate: new Date().toLocaleDateString()
-                        };
-
-                        fetch(`${API_BASE_URL}/api/signup`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(userData)
-                        }).then(res => {
-                            if (!res.ok) throw new Error("Backend sync failed");
-                            showToast("Profile completed successfully!");
-                            document.getElementById("auth-overlay").classList.remove("show");
-                            document.getElementById("home").style.display = "none";
-                            document.getElementById("user-section").classList.add("active");
-                            loadUserData(user.uid);
-                        }).catch(err => {
-                            showToast("Failed to save profile", "error");
-                        });
-                    };
-                } else {
-                    // Existing user
-                    showToast("Logged in successfully");
-                }
-            });
-        })
-        .catch((error) => {
-            showToast(error.message, "error");
-        });
-}
-
-// ================= LOGOUT =================
-function logout() {
-    auth.signOut().then(() => {
-        showToast("Logged out successfully");
-    });
-}
-
-// ================= USER DASHBOARD =================
-function loadUserData(uid) {
-    db.collection("users").doc(uid).get()
-        .then(doc => {
-            if (doc.exists) {
-                const data = doc.data();
-
-                document.getElementById("user-name").innerText = data.name || "User";
-                if (document.getElementById("user-email")) document.getElementById("user-email").innerText = data.email || "";
-                if (document.getElementById("user-join-date")) document.getElementById("user-join-date").innerText = data.joinDate || "-";
-
-                let lastPaidDateText = "-";
-                let daysRemaining = 0;
-                let isPaid = (data.paymentStatus === 'Paid' || data.payment === 'Paid');
-
-                if (data.lastPaymentDate) {
-                    const lastPaid = new Date(data.lastPaymentDate);
-                    lastPaidDateText = lastPaid.toLocaleDateString();
-
-                    const today = new Date();
-                    const diffTime = Math.abs(today - lastPaid);
-                    const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-                    if (daysPassed >= 30) {
-                        isPaid = false;
-                        daysRemaining = 0;
-                    } else {
-                        daysRemaining = 30 - daysPassed;
-                    }
-                }
-
-                if (document.getElementById("user-last-paid")) document.getElementById("user-last-paid").innerText = lastPaidDateText;
-
-                const planSpan = document.getElementById("user-plan");
-                planSpan.innerText = data.plan;
-
-                const statusSpan = document.getElementById("user-payment");
-                statusSpan.innerText = isPaid ? "Paid" : "Unpaid";
-
-                // Styling badges
-                statusSpan.className = "value status-badge " + (isPaid ? 'paid' : 'pending');
-
-                // Show/hide Pay Now button
-                const payNowBtn = document.getElementById("pay-now-btn");
-                if (payNowBtn) {
-                    payNowBtn.style.display = isPaid ? "none" : "block";
-                }
-
-                // Progress Bar Logic
-                if (data.lastPaymentDate) {
-                    const progressPercentage = Math.min(((30 - daysRemaining) / 30) * 100, 100);
-
-                    const daysEl = document.getElementById("days-remaining");
-                    if (daysEl) daysEl.innerText = `${daysRemaining} days remaining`;
-
-                    const progressBar = document.getElementById("cycle-progress");
-                    if (progressBar) {
-                        progressBar.style.width = `${progressPercentage}%`;
-
-                        // Color transitions
-                        if (daysRemaining <= 3) {
-                            progressBar.style.background = "#ef4444"; // Red
-                        } else if (daysRemaining <= 10) {
-                            progressBar.style.background = "#fbbf24"; // Yellow
-                        } else {
-                            progressBar.style.background = "#4ade80"; // Green
-                        }
-                    }
-                }
-            }
-        });
-}
-
-// ================= ADMIN PANEL =================
-// Global variable to store users for filtering
-let allCustomersData = [];
-
-function loadAllUsers() {
-    const userList = document.getElementById("user-list");
-    const loading = document.getElementById("admin-loading");
-
-    userList.innerHTML = "";
-    loading.style.display = "block";
-
-    db.collection("users").get().then(snapshot => {
-        loading.style.display = "none";
-
-        allCustomersData = [];
-        let activePlans = 0;
-
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            data.id = doc.id;
-            allCustomersData.push(data);
-            if (data.paymentStatus === 'Paid' || data.payment === 'Paid') activePlans++;
-        });
-
-        document.getElementById("stat-total-users").innerText = snapshot.size;
-        document.getElementById("stat-active-plans").innerText = activePlans;
-
-        renderCustomerTable(allCustomersData);
-    }).catch(err => {
-        loading.style.display = "none";
-        showToast("Error loading users", "error");
-    });
-}
-
-function renderCustomerTable(dataList) {
-    const userList = document.getElementById("user-list");
-    userList.innerHTML = "";
-    dataList.forEach(data => {
-        const isPaid = (data.paymentStatus === 'Paid' || data.payment === 'Paid');
-        const statusClass = isPaid ? 'paid' : 'pending';
-        const actionBtn = isPaid
-            ? `<span style="color: #4ade80; font-weight:bold;">✔ Paid</span>`
-            : `<button class="btn btn-outline btn-sm" onclick="markPaid('${data.id}')">Mark Paid</button>`;
-
-        // Format dates
-        const joinDate = data.joinDate || '-';
-        const lastPaid = data.lastPaymentDate ? new Date(data.lastPaymentDate).toLocaleDateString() : '-';
-
-        userList.innerHTML += `
-            <tr>
-                <td>${data.name || 'User'}</td>
-                <td>${data.contact || '-'}</td>
-                <td>${data.plan || 'Basic'}</td>
-                <td>${joinDate}</td>
-                <td>${lastPaid}</td>
-                <td><span class="status-badge ${statusClass}">${data.paymentStatus || data.payment || "Unpaid"}</span></td>
-                <td>${actionBtn}</td>
-            </tr>
-        `;
-    });
-}
-
-// Attach event listeners for search and filter
-document.getElementById('search-customer')?.addEventListener('input', () => applyCustomerFilters());
-document.getElementById('filter-customer')?.addEventListener('change', () => applyCustomerFilters());
-
-function applyCustomerFilters() {
-    const searchEl = document.getElementById('search-customer');
-    const filterEl = document.getElementById('filter-customer');
-    if (!searchEl || !filterEl) return;
-
-    const searchTerm = searchEl.value.toLowerCase();
-    const filterVal = filterEl.value;
-
-    let filtered = allCustomersData.filter(user => {
-        return (user.name || '').toLowerCase().includes(searchTerm);
-    });
-
-    if (filterVal === 'paid') {
-        filtered = filtered.filter(u => u.paymentStatus === 'Paid' || u.payment === 'Paid');
-    } else if (filterVal === 'unpaid') {
-        filtered = filtered.filter(u => u.paymentStatus === 'Unpaid' || u.payment === 'Unpaid' || u.paymentStatus === 'Pending' || u.payment === 'Pending');
-    } else if (filterVal === 'sort-name') {
-        filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }
-
-    renderCustomerTable(filtered);
-}
-
-// ================= MARK PAYMENT =================
-function markPaid(userId) {
-    showToast("Updating payment...", "success");
-    const btn = event?.target;
-    if (btn) btn.disabled = true;
-
-    fetch(`${API_BASE_URL}/api/payments/mark-paid`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: userId })
-    })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                showToast("Payment marked as Paid!");
-                loadAllUsers(); // Refresh the list
-            } else {
-                throw new Error(data.error || "Failed to update payment");
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            showToast("Failed to update payment", "error");
-            if (btn) btn.disabled = false;
-        });
-}
-
-// ================= RAZORPAY INTEGRATION =================
-function payNow() {
-    const user = auth.currentUser;
-    if (!user) return showToast("Please login first", "error");
-
-    showToast("Initializing payment...", "success");
-
-    // Fetch user details to get the plan amount
-    db.collection("users").doc(user.uid).get().then(doc => {
-        if (!doc.exists) return showToast("User not found", "error");
-
-        const data = doc.data();
-        let amount = 999; // Default Basic
-        if (data.plan === "Standard") amount = 1999;
-        if (data.plan === "Premium") amount = 2999;
-
-        // 1. Create order on backend
-        fetch(`${API_BASE_URL}/api/payments/create-order`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: amount, plan: data.plan })
-        })
-            .then(res => res.json())
-            .then(orderData => {
-                if (!orderData.success) throw new Error("Failed to create order");
-
-                // 2. Open Razorpay Checkout
-                const options = {
-                    key: "rzp_test_Sho7771I5NfLQD", // ✅ REAL KEY
-                    amount: orderData.order.amount,
-                    currency: orderData.order.currency,
-                    name: "Max Health Club Gym",
-                    description: `${data.plan} Membership`,
-                    order_id: orderData.order.id,
-
-                    handler: function (response) {
-                        console.log("Payment success:", response);
-
-                        fetch(`${API_BASE_URL}/api/payments/verify`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                razorpay_payment_id: response.razorpay_payment_id,
-                                razorpay_order_id: response.razorpay_order_id,
-                                razorpay_signature: response.razorpay_signature,
-                                userId: user.uid
-                            })
-                        })
-                            .then(res => res.json())
-                            .then(verifyData => {
-                                if (verifyData.success) {
-                                    showToast("Payment successful!");
-                                    loadUserData(user.uid);
-                                } else {
-                                    showToast("Verification failed", "error");
-                                }
-                            })
-                            .catch(() => showToast("Verification error", "error"));
-                    }
+async function signInWithGoogle() {
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        const res = await auth.signInWithPopup(provider);
+        const doc = await db.collection("users").doc(res.user.uid).get();
+        if (!doc.exists) {
+            switchAuthView('signup');
+            document.getElementById("auth-email").value = res.user.email;
+            document.getElementById("auth-email").disabled = true;
+            document.getElementById("auth-password").style.display = 'none';
+            document.getElementById('auth-primary-btn').onclick = async () => {
+                showLoader();
+                const userData = {
+                    uid: res.user.uid, name: document.getElementById("fullname").value, email: res.user.email,
+                    contact: document.getElementById("contact").value, address: document.getElementById("address").value,
+                    plan: document.getElementById("plan-select").value, paymentStatus: "Unpaid", joinDate: new Date().toISOString(), lastPaymentDate: null, role: 'user'
                 };
-
-                const rzp = new window.Razorpay(options);
-                rzp.on('payment.failed', function (response) {
-                    showToast(response.error.description || "Payment failed", "error");
-                });
-                rzp.open();
-            })
-            .catch(err => {
-                console.error(err);
-                showToast("Error initializing payment", "error");
-            });
-    });
+                await api('/api/signup', 'POST', userData);
+                hideLoader(); closeAuthModal(); updateUIAfterLogin();
+            };
+        } else {
+            showToast("Logged in!"); closeAuthModal();
+        }
+    } catch (err) { showToast(err.message, "error"); }
 }
 
-// ================= UI STATE MANAGEMENT =================
-function updateUIState(user) {
-    const overlay = document.getElementById("auth-overlay");
-    const landing = document.getElementById("landing-section");
-    const adminSec = document.getElementById("admin-section");
-    const userSec = document.getElementById("user-section");
+function logout() {
+    auth.signOut().then(() => { showToast("Logged out"); closeSidebar(); toggleAdminDashboard(false); });
+}
 
-    if (user) {
-        if (user.email === ADMIN_EMAIL) {
-            if (overlay) overlay.classList.remove("show");
-            if (landing) landing.style.display = "none";
-            if (adminSec) adminSec.classList.add("active");
-            if (userSec) userSec.classList.remove("active");
+// ================= OTP FLOW =================
+async function sendOtp() {
+    const email = document.getElementById("forgot-email").value;
+    if (!email) return showToast("Enter email", "error");
+    
+    const btn = document.getElementById('send-otp-btn'); btn.disabled = true; btn.innerText = "Sending...";
+    try {
+        await api('/api/auth/forgot-password/send-otp', 'POST', { email });
+        showToast("OTP sent to your email!");
+        document.getElementById('otp-section').style.display = 'block';
+    } catch (err) {
+        showToast(err.message, "error");
+    } finally { btn.disabled = false; btn.innerText = "Send OTP"; }
+}
 
-            // Load admin stats
-            db.collection("users").get().then(snap => {
-                const totalEl = document.getElementById("stat-total-users");
-                const activeEl = document.getElementById("stat-active-plans");
-                if (totalEl) totalEl.innerText = snap.size;
-                let active = 0;
-                snap.forEach(d => { if (d.data().paymentStatus === 'Paid' || d.data().payment === 'Paid') active++; });
-                if (activeEl) activeEl.innerText = active;
-            });
+async function verifyOtpAndReset() {
+    const email = document.getElementById("forgot-email").value;
+    const otp = document.getElementById("forgot-otp").value;
+    const password = document.getElementById("forgot-new-password").value;
+    
+    if (!otp || !password) return showToast("Enter OTP and new password", "error");
+    if (password.length < 6) return showToast("Password must be at least 6 characters", "error");
+
+    showLoader();
+    try {
+        await api('/api/auth/forgot-password/verify-otp', 'POST', { email, otp });
+        await api('/api/auth/forgot-password/reset', 'POST', { email, password });
+        showToast("Password reset successful!");
+        if (appState.user) {
+            closeSidebar();
         } else {
-            // Check if user has complete profile in Firestore
-            db.collection("users").doc(user.uid).get().then(doc => {
-                if (doc.exists) {
-                    if (overlay) overlay.classList.remove("show");
-                    if (landing) landing.style.display = "none";
-                    if (userSec) userSec.classList.add("active");
-                    if (adminSec) adminSec.classList.remove("active");
-                    loadUserData(user.uid);
-                } else {
-                    // Profile incomplete (e.g. new Google login)
-                    // Keep overlay open so signInWithGoogle can show Complete Profile form
-                    if (overlay) overlay.classList.add("show");
-                    if (landing) landing.style.display = "block";
-                }
-            });
+            switchAuthView('login');
         }
+    } catch (err) {
+        showToast(err.message, "error");
+    } finally { hideLoader(); }
+}
 
-        // Reset login button text if it was loading
-        const btn = document.getElementById('auth-primary-btn');
-        if (btn) {
-            btn.innerText = isLoginMode ? "Sign In" : "Create Account";
-            btn.disabled = false;
+function triggerProfileForgotPW() {
+    closeSidebar();
+    openAuthModal();
+    switchAuthView('forgot');
+    document.getElementById("forgot-email").value = appState.user.email;
+}
+
+// ================= UI STATE UPDATES (ROLE BASED UNIFIED VIEW) =================
+async function updateUIAfterLogin() {
+    document.getElementById("nav-auth-btn").style.display = 'none';
+
+    try {
+        const docSnap = await db.collection("users").doc(appState.user.uid).get();
+        const name = docSnap.exists ? docSnap.data().name.split(' ')[0] : 'User';
+        document.getElementById("nav-greeting").innerHTML = `Welcome, <span class="text-accent">${name}</span>`;
+
+        if (appState.role === 'admin') {
+            // ADMIN NAV: Hide user links, show admin links. Landing page remains visible!
+            document.querySelectorAll('.user-link').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.admin-link').forEach(el => el.style.display = 'inline-block');
+            document.getElementById("nav-profile-btn").style.display = 'none';
+            document.getElementById("nav-logout-admin-btn").style.display = 'inline-block';
+        } else {
+            // USER NAV
+            document.querySelectorAll('.admin-link').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.user-link').forEach(el => el.style.display = 'inline-block');
+            document.getElementById("nav-profile-btn").style.display = 'inline-block';
+            document.getElementById("nav-logout-admin-btn").style.display = 'none';
+            loadUserProfile();
         }
-    } else {
-        if (landing) landing.style.display = "block";
-        if (adminSec) adminSec.classList.remove("active");
-        if (userSec) userSec.classList.remove("active");
-
-        // Hide overlay until triggered
-        if (overlay) overlay.classList.remove("show");
-
-        // Clear inputs
-        const emailInput = document.getElementById("auth-email");
-        const passInput = document.getElementById("auth-password");
-        if (emailInput) emailInput.value = "";
-        if (passInput) passInput.value = "";
+    } catch(e) {
+        document.getElementById("nav-greeting").innerHTML = `Welcome`;
     }
 }
 
-// ================= AUTH STATE =================
-auth.onAuthStateChanged(user => {
-    console.log("Auth state changed, user:", user ? user.email : "none");
-    updateUIState(user);
+function updateUIAfterLogout() {
+    document.getElementById("nav-auth-btn").style.display = 'inline-block';
+    document.getElementById("nav-profile-btn").style.display = 'none';
+    document.getElementById("nav-logout-admin-btn").style.display = 'none';
+    document.getElementById("nav-greeting").innerHTML = `MAX <span class="text-accent">HEALTH</span>`;
+    
+    document.querySelectorAll('.admin-link').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.user-link').forEach(el => el.style.display = 'inline-block');
+    toggleAdminDashboard(false);
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById("user-sidebar");
+    const overlay = document.getElementById("sidebar-overlay");
+    appState.sidebarOpen = !appState.sidebarOpen;
+    sidebar.classList.toggle("open", appState.sidebarOpen);
+    overlay.classList.toggle("show", appState.sidebarOpen);
+}
+function closeSidebar() { appState.sidebarOpen = false; document.getElementById("user-sidebar").classList.remove("open"); document.getElementById("sidebar-overlay").classList.remove("show"); }
+
+async function loadUserProfile() {
+    if (!appState.user || appState.role === 'admin') return;
+    try {
+        const docSnap = await db.collection("users").doc(appState.user.uid).get();
+        if (docSnap.exists) {
+            const data = docSnap.data();
+            document.getElementById("user-name").innerText = data.name;
+            document.getElementById("user-plan").innerText = data.plan;
+            document.getElementById("user-joined").innerText = new Date(data.joinDate).toLocaleDateString();
+            
+            const isPaid = data.paymentStatus === 'Paid';
+            const paymentEl = document.getElementById("user-payment");
+            paymentEl.innerText = isPaid ? "Paid" : "Unpaid";
+            paymentEl.className = "value status-badge " + (isPaid ? "paid" : "pending");
+            document.getElementById("pay-now-btn").style.display = isPaid ? "none" : "block";
+
+            // Progress Bar Logic
+            let daysRemaining = 0;
+            if (isPaid && data.lastPaymentDate) {
+                const diffTime = Math.abs(new Date() - new Date(data.lastPaymentDate));
+                const daysPassed = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                daysRemaining = Math.max(0, 30 - daysPassed);
+            }
+            const progressEl = document.getElementById("expiry-progress");
+            const progressText = document.getElementById("days-remaining-text");
+            progressText.innerText = `${daysRemaining} Days Remaining`;
+            const percentage = (daysRemaining / 30) * 100;
+            progressEl.style.width = `${percentage}%`;
+            if(percentage < 20) progressEl.style.background = 'linear-gradient(90deg, #ff9900, #ff0000)';
+        }
+    } catch(err) { console.error("Profile load error", err); }
+}
+
+async function changePassword() {
+    const oldP = document.getElementById("change-old-pw").value;
+    const newP = document.getElementById("change-new-pw").value;
+    const confirmP = document.getElementById("change-confirm-pw").value;
+    
+    if(!oldP || !newP || !confirmP) return showToast("Fill all fields", "error");
+    if(newP.length < 6) return showToast("New password must be at least 6 characters", "error");
+    if(newP !== confirmP) return showToast("Passwords do not match", "error");
+
+    try {
+        const cred = firebase.auth.EmailAuthProvider.credential(appState.user.email, oldP);
+        await appState.user.reauthenticateWithCredential(cred);
+        await appState.user.updatePassword(newP);
+        showToast("Password updated successfully!");
+        document.getElementById("change-old-pw").value = '';
+        document.getElementById("change-new-pw").value = '';
+        document.getElementById("change-confirm-pw").value = '';
+    } catch(err) { showToast(err.message, "error"); }
+}
+
+// ================= RAZORPAY =================
+async function payNow() {
+    if(!appState.user) return openAuthModal();
+    showLoader();
+    try {
+        const doc = await db.collection("users").doc(appState.user.uid).get();
+        const plan = doc.data().plan;
+        
+        const res = await api('/api/payments/create-order', 'POST', { plan });
+        const orderData = res.data;
+
+        const options = {
+            key: "rzp_test_Sho7771I5NfLQD",
+            amount: orderData.amount,
+            currency: orderData.currency,
+            name: "Max Health Club",
+            description: `${plan} Membership Upgrade`,
+            order_id: orderData.id,
+            handler: async function (response) {
+                try {
+                    await api('/api/payments/verify', 'POST', {
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_signature: response.razorpay_signature
+                    });
+                    showToast("Payment successful!");
+                    loadUserProfile();
+                } catch (e) { showToast("Verification failed", "error"); }
+            }
+        };
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+    } catch (err) {
+        showToast(err.message, "error");
+    } finally { hideLoader(); }
+}
+function choosePlan(planName) {
+    if(!appState.user) {
+        switchAuthView('signup');
+        document.getElementById("plan-select").value = planName;
+        openAuthModal();
+    } else {
+        if (appState.role === 'admin') return showToast("Admins do not need plans.", "error");
+        db.collection("users").doc(appState.user.uid).update({ plan: planName, paymentStatus: "Unpaid" }).then(() => {
+            loadUserProfile(); payNow();
+        });
+    }
+}
+
+// ================= EVENTS SYSTEM =================
+async function loadEvents() {
+    const errorState = document.getElementById("events-error-state");
+    const container  = document.getElementById("eventsContainer");
+    const emptyState = document.getElementById("events-empty-state");
+
+    console.log("CONTAINER:", container);
+
+    if (errorState) errorState.style.display = 'none';
+
+    try {
+        const result = await api('/api/events');
+        console.log("RAW RESPONSE:", result);
+        console.log("EVENT ARRAY:", result.data);
+
+        const events = result.data;
+
+        if (!events || events.length === 0) {
+            container.innerHTML = "";
+            if (emptyState) emptyState.style.display = "block";
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = "none";
+
+        // NOTE: no 'reveal fade-up' — dynamically injected cards are never
+        // observed by IntersectionObserver, so they stay invisible. Removed.
+        container.innerHTML = events.map(ev => `
+            <div class="event-card premium-card ${ev.isHoliday ? 'holiday' : ''}">
+                <div class="event-date">${new Date(ev.date).toLocaleDateString(undefined, {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</div>
+                <h3 style="font-size: 1.5rem; margin-bottom: 10px;">${ev.title} ${ev.isHoliday ? '🚫' : ''}</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">${ev.description || ''}</p>
+                ${ev.isHoliday ? '<span style="display:inline-block; margin-top:10px; background:rgba(251,191,36,0.2); color:#fbbf24; padding:3px 8px; border-radius:4px; font-size:0.8rem;">Holiday</span>' : ''}
+            </div>
+        `).join('');
+
+        console.log("Events rendered:", events.length);
+    } catch (e) {
+        console.error("Failed to load events:", e);
+        if (errorState) {
+            errorState.style.display = 'block';
+            errorState.innerHTML = `<p>Failed to load events</p><button class="btn btn-outline btn-sm" style="margin-top: 15px;" onclick="loadEvents()">Try Again</button>`;
+        }
+    }
+}
+
+// ================= REVIEWS SYSTEM =================
+let currentReviewRating = 5;
+document.querySelectorAll('#star-rating-input span').forEach(star => {
+    star.addEventListener('click', (e) => {
+        currentReviewRating = parseInt(e.target.dataset.value);
+        document.querySelectorAll('#star-rating-input span').forEach(s => {
+            s.classList.toggle('active', parseInt(s.dataset.value) <= currentReviewRating);
+        });
+    });
 });
 
-function openAuthOrDashboard() {
-    console.log("openAuthOrDashboard called");
-    const user = auth.currentUser;
-    if (user) {
-        // If already logged in, just update UI
-        updateUIState(user);
-    } else {
-        // Show auth overlay
-        document.getElementById("auth-overlay").classList.add("show");
+function openReviewForm() {
+    if(!appState.user) return openAuthModal();
+    if(appState.role === 'admin') return showToast("Admins cannot leave user reviews.", "error");
+    document.getElementById("review-form-container").style.display = "block";
+    document.getElementById("review-form-container").scrollIntoView({ behavior: 'smooth' });
+}
+function closeReviewForm() { document.getElementById("review-form-container").style.display = "none"; clearImagePreview(); }
+
+function previewReviewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('image-preview').src = e.target.result;
+            document.getElementById('image-preview-container').style.display = 'inline-block';
+        }
+        reader.readAsDataURL(file);
+    }
+}
+function clearImagePreview() {
+    document.getElementById('review-image').value = "";
+    document.getElementById('image-preview-container').style.display = 'none';
+    document.getElementById('image-preview').src = "";
+}
+
+async function submitReview() {
+    const text = document.getElementById("review-text").value;
+    const file = document.getElementById("review-image").files[0];
+    if(!text) return showToast("Review text is required", "error");
+
+    showLoader();
+    try {
+        let imageUrl = null;
+        if (file) {
+            if(file.size > 2 * 1024 * 1024) throw new Error("Image must be less than 2MB");
+            const storageRef = storage.ref(`reviews/${appState.user.uid}/${Date.now()}.jpg`);
+            await storageRef.put(file);
+            imageUrl = await storageRef.getDownloadURL();
+        }
+
+        const docSnap = await db.collection("users").doc(appState.user.uid).get();
+        const name = docSnap.exists ? docSnap.data().name : "User";
+
+        await api('/api/reviews', 'POST', { rating: currentReviewRating, text, imageUrl, name });
+        showToast("Review submitted successfully!");
+        closeReviewForm();
+        
+        // Fix: Immediately fetch and render the newly updated review list
+        await loadReviews('newest');
+    } catch (err) { showToast(err.message, "error"); } finally { hideLoader(); }
+}
+
+async function loadReviews(filter, clickedBtn) {
+    // Fix: never touch window.event — use the explicitly passed button reference
+    document.querySelectorAll('.filters .btn').forEach(b => b.classList.remove('active'));
+    if (clickedBtn) clickedBtn.classList.add('active');
+
+    const container  = document.getElementById("reviews-grid");
+    const emptyState = document.getElementById("reviews-empty-state");
+
+    if (!container) {
+        console.error("Review container #reviews-grid not found");
+        return;
+    }
+
+    try {
+        const res = await api(`/api/reviews?filter=${filter}&limit=6`);
+        console.log("RAW REVIEWS RESPONSE:", res);
+
+        const reviews = res.data;
+        console.log("REVIEWS ARRAY:", reviews);
+
+        if (!reviews || reviews.length === 0) {
+            container.innerHTML = "";
+            if (emptyState) emptyState.style.display = "block";
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = "none";
+
+        // NOTE: no 'reveal fade-up' — dynamically injected cards are never
+        // observed by IntersectionObserver and stay opacity:0 forever
+        container.innerHTML = reviews.map(r => `
+            <div class="review-card premium-card">
+                <div class="review-header">
+                    <div>
+                        <h4 style="margin-bottom: 5px; font-size: 1.2rem;">${r.name || 'Anonymous'}</h4>
+                        <div class="review-stars">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</div>
+                    </div>
+                    <div class="review-date">${r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</div>
+                </div>
+                <p style="color: rgba(255,255,255,0.9);">${r.text || ''}</p>
+                ${r.imageUrl ? `<img src="${r.imageUrl}" class="review-image" loading="lazy">` : ''}
+                ${(appState.user && appState.user.uid === r.id) ? `<button class="btn btn-outline btn-sm" style="margin-top:20px; border-color:#ef4444; color:#ef4444;" onclick="deleteReview('${r.id}')">Delete My Review</button>` : ''}
+            </div>
+        `).join('');
+
+        console.log("Reviews rendered:", reviews.length);
+    } catch (e) {
+        console.error("Failed to load reviews:", e);
     }
 }
 
-function choosePlan(planName, amount) {
-    console.log(`choosePlan called for ${planName} at ${amount}`);
-    const user = auth.currentUser;
-    if (!user) {
-        showToast("Please login or sign up to select a plan", "info");
-        // Open sign up mode pre-filled with plan
-        isLoginMode = false;
-        const title = document.getElementById('auth-title');
-        const subtitle = document.getElementById('auth-subtitle');
-        const btn = document.getElementById('auth-primary-btn');
-        const toggleText = document.getElementById('auth-toggle-text');
-        const signupFields = document.getElementById('signup-fields');
+async function deleteReview(id) {
+    if(!confirm("Are you sure you want to delete your review?")) return;
+    try {
+        await api(`/api/reviews/${id}`, 'DELETE');
+        showToast("Review deleted");
+        loadReviews('newest');
+    } catch(err) { showToast("Failed to delete", "error"); }
+}
 
-        title.innerText = "Sign Up";
-        subtitle.innerText = "Start your transformation today";
-        btn.innerText = "Create Account";
-        btn.onclick = signup;
-        signupFields.style.display = "block";
-        toggleText.innerHTML = `Already have an account? <span onclick="toggleAuthMode()">Login here</span>`;
-
-        document.getElementById("plan-select").value = planName;
-        document.getElementById("auth-overlay").classList.add("show");
+// ================= ADMIN DASHBOARD LOGIC (OVERLAY) =================
+function toggleAdminDashboard(forceState) {
+    if (appState.role !== 'admin') return;
+    const overlay = document.getElementById("admin-dashboard-overlay");
+    
+    if (typeof forceState === 'boolean') {
+        appState.adminOverlayOpen = forceState;
     } else {
-        // Update user plan and redirect to payment
-        showToast(`Updating plan to ${planName}...`, "success");
-        db.collection("users").doc(user.uid).update({
-            plan: planName,
-            paymentStatus: "Unpaid"
-        }).then(() => {
-            loadUserData(user.uid);
-            setTimeout(() => {
-                payNow();
-            }, 1000);
-        });
+        appState.adminOverlayOpen = !appState.adminOverlayOpen;
+    }
+
+    if (appState.adminOverlayOpen) {
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        switchAdminTab('dashboard'); // Load data
+    } else {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
     }
 }
 
-// ================= THREE.JS 3D DUMBBELL =================
-function init3D() {
-    const container = document.getElementById('canvas-container');
-    if (!container || !window.THREE) return;
+function switchAdminTab(tab) {
+    if (appState.role !== 'admin') return;
+    document.querySelectorAll('.admin-tab-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.admin-nav-btn').forEach(el => el.classList.remove('active'));
+    
+    const target = document.getElementById(`admin-tab-${tab}`);
+    if(target) target.style.display = 'block';
+    if(event && event.target) event.target.classList.add('active');
 
-    const scene = new THREE.Scene();
-    // Use an orthographic-like narrow perspective for a flatter isometric look
-    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    if (tab === 'dashboard') loadAdminOverview();
+    if (tab === 'customers') loadAdminCustomers();
+    if (tab === 'events') loadAdminEvents();
+}
 
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    container.appendChild(renderer.domElement);
+async function loadAdminOverview() {
+    try {
+        const statsRes = await api('/api/admin/stats');
+        document.getElementById('stat-users').innerText = statsRes.data.totalUsers;
+        document.getElementById('stat-active-users').innerText = statsRes.data.activeUsers;
+        document.getElementById('stat-events').innerText = statsRes.data.activeEvents;
+    } catch(e) { console.error("Stats Error:", e); }
+}
 
-    const dumbbell = new THREE.Group();
+async function loadAdminCustomers() {
+    const list = document.getElementById("user-list");
+    const loader = document.getElementById("admin-customers-loader");
+    const errorMsg = document.getElementById("admin-customers-error");
+    
+    list.innerHTML = "";
+    loader.style.display = "block";
+    errorMsg.style.display = "none";
 
-    // Materials
-    const handleMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.2 });
-    const weightMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.3, roughness: 0.7 });
-    const accentMat = new THREE.MeshStandardMaterial({ color: 0xe60000, metalness: 0.5, roughness: 0.5 });
+    try {
+        const res = await api('/api/users');
+        loader.style.display = "none";
+        list.innerHTML = res.data.map(u => `
+            <tr>
+                <td style="font-weight: 600;">${u.name}</td>
+                <td style="color: var(--text-muted);">${u.email}</td>
+                <td>${u.plan || 'N/A'}</td>
+                <td><span class="status-badge ${u.paymentStatus==='Paid'?'paid':'pending'}">${u.paymentStatus}</span></td>
+                <td>
+                    ${u.role === 'admin' 
+                        ? '<span style="color:var(--text-muted); font-size:0.8rem;">Admin</span>' 
+                        : `<div style="display:flex; gap: 8px;">
+                               ${u.paymentStatus !== 'Paid' ? `<button class="btn btn-outline btn-sm" onclick="markPaid('${u.id}')" style="border-color:#4ade80; color:#4ade80;">Mark Paid</button>` : ''}
+                               <button class="btn btn-outline btn-sm" onclick="softDeleteUser('${u.id}')" style="border-color:#ef4444; color:#ef4444;">Remove</button>
+                           </div>`
+                    }
+                </td>
+            </tr>
+        `).join('');
+    } catch(e) { 
+        loader.style.display = "none";
+        errorMsg.style.display = "block";
+        showToast("Error loading users: " + e.message, "error"); 
+    }
+}
 
-    // Handle
-    const handleGeo = new THREE.CylinderGeometry(0.2, 0.2, 4, 32);
-    const handle = new THREE.Mesh(handleGeo, handleMat);
-    handle.rotation.z = Math.PI / 2;
-    dumbbell.add(handle);
+async function markPaid(uid) {
+    if(!confirm("Manually mark this user as paid?")) return;
+    try {
+        await api('/api/payments/mark-paid', 'POST', { userId: uid });
+        showToast("User marked as paid");
+        loadAdminCustomers();
+        loadAdminOverview();
+    } catch(e) { showToast(e.message, "error"); }
+}
 
-    // Weights (Left)
-    const weightGeo1 = new THREE.CylinderGeometry(1.2, 1.2, 0.5, 32);
-    const weightL1 = new THREE.Mesh(weightGeo1, weightMat);
-    weightL1.rotation.z = Math.PI / 2;
-    weightL1.position.x = -1.5;
-    dumbbell.add(weightL1);
+async function softDeleteUser(uid) {
+    if(!confirm("Remove this user? (Soft delete)")) return;
+    try {
+        await api(`/api/users/${uid}`, 'DELETE');
+        showToast("User removed");
+        loadAdminCustomers();
+        loadAdminOverview();
+    } catch(e) { showToast(e.message, "error"); }
+}
 
-    const weightGeo2 = new THREE.CylinderGeometry(0.9, 0.9, 0.4, 32);
-    const weightL2 = new THREE.Mesh(weightGeo2, accentMat);
-    weightL2.rotation.z = Math.PI / 2;
-    weightL2.position.x = -2.0;
-    dumbbell.add(weightL2);
+async function loadAdminEvents() {
+    try {
+        const res = await api('/api/events');
+        const list = document.getElementById("admin-event-list");
+        list.innerHTML = res.data.map(ev => `
+            <tr>
+                <td style="font-weight: bold;">${ev.title}</td>
+                <td style="color: var(--text-muted);">${new Date(ev.date).toLocaleDateString()}</td>
+                <td>${ev.isHoliday ? 'Holiday (Closed)' : 'Standard'}</td>
+                <td><button class="btn btn-outline btn-sm" onclick="deleteEvent('${ev.id}')" style="border-color:#ef4444; color:#ef4444;">Remove</button></td>
+            </tr>
+        `).join('');
+    } catch(e) { showToast("Error loading events", "error"); }
+}
 
-    // Weights (Right)
-    const weightR1 = new THREE.Mesh(weightGeo1, weightMat);
-    weightR1.rotation.z = Math.PI / 2;
-    weightR1.position.x = 1.5;
-    dumbbell.add(weightR1);
+async function createGymEvent() {
+    const title       = document.getElementById("admin-event-title").value.trim();
+    const date        = document.getElementById("admin-event-date").value;
+    const description = document.getElementById("admin-event-desc").value.trim();
+    const isHoliday   = document.getElementById("admin-event-isholiday").checked;
 
-    const weightR2 = new THREE.Mesh(weightGeo2, accentMat);
-    weightR2.rotation.z = Math.PI / 2;
-    weightR2.position.x = 2.0;
-    dumbbell.add(weightR2);
+    console.log({ title, description, date, isHoliday });
 
-    scene.add(dumbbell);
+    if (!title || !date) return showToast("Title and date required", "error");
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
+    const btn = document.querySelector('[onclick="createGymEvent()"]');
+    if (btn) { btn.disabled = true; btn.innerText = "Publishing..."; }
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(5, 5, 5);
-    scene.add(dirLight);
+    try {
+        await api('/api/events', 'POST', { title, date, description, isHoliday });
+        showToast("Event created");
 
-    camera.position.z = 10;
-    camera.position.y = 2;
-    camera.position.x = -5;
-    camera.lookAt(0, 0, 0);
+        document.getElementById("admin-event-title").value = '';
+        document.getElementById("admin-event-date").value = '';
+        document.getElementById("admin-event-desc").value = '';
+        document.getElementById("admin-event-isholiday").checked = false;
 
-    // Initial rotation
-    dumbbell.rotation.x = Math.PI / 6;
+        loadAdminEvents();
+        loadEvents();
+        loadAdminOverview();
+    } catch (e) {
+        showToast(e.message, "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = "Publish Event"; }
+    }
+}
 
-    // Animation loop
-    const animate = function () {
-        requestAnimationFrame(animate);
-        dumbbell.rotation.y += 0.005;
-        renderer.render(scene, camera);
-    };
+async function deleteEvent(id) {
+    if(!confirm("Delete event?")) return;
+    try { 
+        await api(`/api/events/${id}`, 'DELETE'); 
+        loadAdminEvents(); 
+        loadEvents();
+        loadAdminOverview();
+        showToast("Event deleted"); 
+    } catch(e) {}
+}
 
-    animate();
+// ================= ANIMATIONS & SCROLL =================
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 50) navbar.classList.add('scrolled');
+    else navbar.classList.remove('scrolled');
+});
 
-    // Resize handler
-    window.addEventListener('resize', () => {
-        if (!container) return;
-        camera.aspect = container.clientWidth / container.clientHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
+// Intersection Observer for Reveal
+const observerOptions = { threshold: 0.1, rootMargin: "0px 0px -50px 0px" };
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting && !appState.reduceMotion) {
+            entry.target.classList.add('active');
+            observer.unobserve(entry.target);
+        }
     });
+}, observerOptions);
+
+function initAnimations() {
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 }
 
-// Initialize when window loads
-window.addEventListener('load', init3D);
+// BULLETPROOF GYM PLATE TRACKER (No Infinite Stacking, No Overflow)
+let previousPlateCount = 0;
+
+function updatePlates() {
+    if (appState.reduceMotion || window.innerWidth < 768) return;
+    
+    const container = document.getElementById('plates-container');
+    if (!container) return;
+
+    // Calculate Scroll Percentage
+    const scrollHeight = document.body.scrollHeight - window.innerHeight;
+    const scrollPercent = Math.max(0, Math.min(1, window.scrollY / scrollHeight));
+    
+    // Map strictly to 0 - 10 plates
+    const targetPlates = Math.floor(scrollPercent * 10);
+
+    // Only manipulate DOM if count changed to prevent thrashing
+    if (targetPlates !== previousPlateCount) {
+        // Hard clear container to prevent infinite stacking or overflow bugs
+        container.innerHTML = '';
+        
+        // Re-render based entirely on current percentage
+        for (let i = 1; i <= targetPlates; i++) {
+            const plate = document.createElement('div');
+            plate.className = `gym-plate ${i % 3 === 0 ? 'red' : ''}`;
+            plate.innerText = i % 3 === 0 ? '25KG' : '10KG';
+            container.appendChild(plate);
+            
+            // Force reflow and apply active class for CSS transition to trigger
+            void plate.offsetWidth;
+            plate.classList.add('active');
+        }
+        previousPlateCount = targetPlates;
+    }
+}
+
+window.addEventListener('scroll', () => {
+    if (!appState.reduceMotion) {
+        window.requestAnimationFrame(updatePlates);
+    }
+});
+
+// Reduce Motion Toggle
+function toggleReduceMotion() {
+    appState.reduceMotion = document.getElementById("reduce-motion-toggle").checked;
+    if (appState.reduceMotion) {
+        document.body.classList.add('reduce-motion');
+        document.querySelectorAll('.reveal').forEach(el => el.classList.add('active'));
+    } else {
+        document.body.classList.remove('reduce-motion');
+    }
+}
+
+// ================= INITIALIZATION =================
+window.addEventListener('DOMContentLoaded', () => {
+    // Parallax Hero
+    window.addEventListener('scroll', () => {
+        if(!appState.reduceMotion) {
+            const hero = document.querySelector('.hero');
+            if(hero) hero.style.backgroundPositionY = `${window.scrollY * 0.4}px`;
+        }
+    });
+
+    initAnimations();
+    loadEvents();
+    loadReviews('newest');
+});
