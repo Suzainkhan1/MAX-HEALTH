@@ -1,4 +1,17 @@
-const API_BASE_URL = 'http://localhost:3000'; // Change to production URL when deploying
+// ─── API BASE URL ────────────────────────────────────────────────────────────
+// Automatically uses localhost in development and the Render backend in prod.
+// TO DEPLOY: set your Render service URL below (no trailing slash).
+const RENDER_BACKEND_URL = 'https://max-health-1.onrender.com';
+
+const API_BASE_URL = (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1'
+)
+  ? 'http://localhost:3000'
+  : RENDER_BACKEND_URL;
+
+console.log('[API] Base URL:', API_BASE_URL);
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ================= GLOBAL STATE =================
 let appState = {
@@ -811,6 +824,37 @@ window.addEventListener('DOMContentLoaded', () => {
             if(hero) hero.style.backgroundPositionY = `${window.scrollY * 0.4}px`;
         }
     });
+
+    // ── Hamburger menu toggle ──────────────────────────────────────────────
+    const menuToggle = document.getElementById('mobile-menu');
+    const navLinks   = document.getElementById('main-nav-links');
+
+    if (menuToggle && navLinks) {
+        menuToggle.addEventListener('click', () => {
+            const isOpen = navLinks.classList.toggle('active');
+            menuToggle.classList.toggle('active', isOpen);
+            menuToggle.setAttribute('aria-expanded', isOpen);
+        });
+
+        // Close menu when any nav link is clicked
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('active');
+                menuToggle.classList.remove('active');
+                menuToggle.setAttribute('aria-expanded', 'false');
+            });
+        });
+
+        // Close menu on outside click
+        document.addEventListener('click', (e) => {
+            if (!menuToggle.contains(e.target) && !navLinks.contains(e.target)) {
+                navLinks.classList.remove('active');
+                menuToggle.classList.remove('active');
+                menuToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+    // ──────────────────────────────────────────────────────────────────────
 
     initAnimations();
     loadEvents();

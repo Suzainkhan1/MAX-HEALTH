@@ -84,6 +84,16 @@ ul { list-style: none; }
 .profile-icon { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); transition: var(--transition); }
 .profile-icon:hover { background: var(--accent-red); transform: scale(1.1); box-shadow: 0 0 15px rgba(230,0,0,0.5); }
 
+/* Nav actions — auth/profile slot, always visible */
+.nav-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+
+/* Hamburger — hidden on desktop, shown on mobile */
+.menu-toggle { display: none; flex-direction: column; justify-content: center; gap: 5px; background: none; border: none; cursor: pointer; padding: 6px; z-index: 1001; flex-shrink: 0; }
+.bar { display: block; width: 24px; height: 2px; background: var(--text-main); border-radius: 2px; transition: transform 0.3s ease, opacity 0.3s ease; }
+.menu-toggle.active .bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.menu-toggle.active .bar:nth-child(2) { opacity: 0; }
+.menu-toggle.active .bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
 /* Auth Overlay */
 #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(15px); display: none; justify-content: center; align-items: center; z-index: 9999; opacity: 0; transition: opacity 0.4s ease; }
 #auth-overlay.show { display: flex; opacity: 1; }
@@ -217,16 +227,94 @@ input:checked + .slider:before { transform: translateX(20px); }
 .gym-plate.red { background: linear-gradient(to bottom, var(--accent-red), #990000); border-color: #ff4d4d; color: white; width: 75px; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
 
 /* Responsiveness */
+/* ─── RESPONSIVE BREAKPOINTS ──────────────────────────────────────────────── */
+
+/* Tablet */
 @media (max-width: 900px) {
     .cards-grid.grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .section-title { font-size: 2.2rem; }
 }
+
+/* Mobile */
 @media (max-width: 768px) {
-    .nav-links { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; width: 100%; background: rgba(5,5,5,0.95); padding: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
+
+    /* ── Navbar ── */
+    .nav-container {
+        flex-wrap: nowrap;         /* logo | nav-actions | hamburger in one row */
+        gap: 10px;
+        padding: 0;
+        min-width: 0;
+    }
+
+    /* Logo shrinks gracefully */
+    .logo { font-size: 1.35rem; letter-spacing: 1px; white-space: nowrap; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Nav links collapse into dropdown */
+    nav { order: 3; width: 100%; }
+    .nav-links {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background: rgba(5,5,5,0.97);
+        padding: 16px 20px 20px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+        backdrop-filter: blur(10px);
+        gap: 4px;
+        z-index: 999;
+    }
     .nav-links.active { display: flex; }
-    .menu-toggle { display: flex; }
-    .hero h1 { font-size: 3.5rem; }
-    #gym-plate-tracker { display: none; }
-    .sidebar { width: 100%; }
+    .nav-links li a { display: block; padding: 10px 0; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .nav-links li:last-child a { border-bottom: none; }
+
+    /* Auth/profile actions — always visible on right */
+    .nav-actions { order: 2; flex-shrink: 0; gap: 8px; }
+    .nav-actions .btn-sm { padding: 6px 12px; font-size: 0.78rem; letter-spacing: 0.5px; }
+
+    /* Hamburger — visible on mobile */
+    .menu-toggle { display: flex; order: 3; }
+
+    /* ── Hero ── */
+    .hero h1 { font-size: 2.6rem; letter-spacing: -0.5px; }
+    .hero p { font-size: 1.1rem; margin-bottom: 28px; }
+
+    /* ── Sections ── */
     .section { padding: 60px 0; }
+    .section-title { font-size: 1.9rem; margin-bottom: 40px; }
+
+    /* ── Cards ── */
     .cards-grid.grid-3 { grid-template-columns: 1fr; }
+    .cards-grid { gap: 16px; }
+
+    /* ── Sidebar (profile panel) ── */
+    .sidebar { width: 100%; max-width: 100%; }
+    .sidebar-content { padding: 50px 24px 40px; }
+
+    /* ── Admin dashboard ── */
+    .admin-fullscreen { padding: 20px 0; }
+    .close-admin-btn { top: 16px; right: 20px; font-size: 1.8rem; }
+    /* Scrollable table on mobile */
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table th, .data-table td { padding: 12px 14px; font-size: 0.82rem; white-space: nowrap; }
+
+    /* ── Auth box ── */
+    .auth-box { max-width: 94vw; padding: 0 12px; }
+    .auth-box h2 { font-size: 1.8rem; }
+
+    /* ── Misc ── */
+    #gym-plate-tracker { display: none; }
+    .pricing-card { padding: 36px 24px; }
+    .price { font-size: 3rem; }
+    .toast { font-size: 0.85rem; padding: 12px 18px; max-width: calc(100vw - 40px); }
+    #toast-container { right: 10px; bottom: 10px; }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+    .logo { font-size: 1.15rem; }
+    .hero h1 { font-size: 2rem; }
+    .nav-actions .btn-sm { padding: 5px 9px; font-size: 0.72rem; }
+    .profile-icon { width: 34px; height: 34px; }
 }

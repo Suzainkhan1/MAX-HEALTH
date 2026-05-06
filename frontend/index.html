@@ -81,38 +81,43 @@
     <!-- Navbar -->
     <header id="navbar">
         <div class="container nav-container">
+            <!-- Logo -->
             <a href="#" class="logo" id="nav-greeting">MAX <span class="text-accent">HEALTH</span></a>
-            <div class="menu-toggle" id="mobile-menu">
-                <span class="bar"></span>
-                <span class="bar"></span>
-                <span class="bar"></span>
-            </div>
+
+            <!-- Nav links (hidden on mobile until hamburger tapped) -->
             <nav>
                 <ul class="nav-links" id="main-nav-links">
-                    <!-- Global Links -->
                     <li><a href="#home">Home</a></li>
                     <li><a href="#events">Events</a></li>
-                    
-                    <!-- Standard User Specific Links -->
                     <li class="user-link"><a href="#membership">Plans</a></li>
                     <li class="user-link"><a href="#services">Services</a></li>
                     <li class="user-link"><a href="#trainers">Trainers</a></li>
                     <li class="user-link"><a href="#reviews">Reviews</a></li>
-                    
-                    <!-- Admin Specific Link -->
                     <li class="admin-link" style="display:none;"><a href="javascript:void(0)" onclick="toggleAdminDashboard()">Dashboard</a></li>
-
-                    <li id="nav-auth-btn"><a href="javascript:void(0)" class="btn btn-primary btn-sm" style="padding: 8px 20px;" onclick="openAuthModal()">Login</a></li>
-                    <li id="nav-profile-btn" style="display: none;">
-                        <a href="javascript:void(0)" onclick="toggleSidebar()" class="profile-icon">
-                            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                        </a>
-                    </li>
-                    <li id="nav-logout-admin-btn" style="display: none;">
-                        <a href="javascript:void(0)" onclick="logout()" class="btn btn-outline btn-sm">Logout</a>
-                    </li>
                 </ul>
             </nav>
+
+            <!-- Auth/profile actions — always visible, never hidden by hamburger -->
+            <div class="nav-actions">
+                <div id="nav-auth-btn">
+                    <a href="javascript:void(0)" class="btn btn-primary btn-sm" onclick="openAuthModal()">Login</a>
+                </div>
+                <div id="nav-profile-btn" style="display: none;">
+                    <a href="javascript:void(0)" onclick="toggleSidebar()" class="profile-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </a>
+                </div>
+                <div id="nav-logout-admin-btn" style="display: none;">
+                    <a href="javascript:void(0)" onclick="logout()" class="btn btn-outline btn-sm">Logout</a>
+                </div>
+            </div>
+
+            <!-- Hamburger (mobile only) -->
+            <button class="menu-toggle" id="mobile-menu" aria-label="Toggle menu" aria-expanded="false">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </button>
         </div>
     </header>
 
@@ -233,7 +238,7 @@
             <div id="admin-tab-events" class="admin-tab-content" style="display: none;">
                 <div class="premium-panel" style="margin-bottom: 30px;">
                     <h3 style="margin-bottom: 15px;">Add New Event</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                         <input type="text" id="admin-event-title" class="form-input" placeholder="Event Title" style="margin-bottom:0;">
                         <input type="date" id="admin-event-date" class="form-input" style="margin-bottom:0;">
                     </div>
